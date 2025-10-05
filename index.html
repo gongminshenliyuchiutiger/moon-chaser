@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>逐月神攝手遊戲系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f0f20; /* 深夜藍 */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 1rem;
+            color: #f0f4f8;
+            transition: background-color 0.5s;
+            position: relative; /* 為了吉祥物的fixed定位 */
+        }
+
+        #game-wrapper {
+            background-color: #1a1a38; /* 遊戲主容器背景 */
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 60px rgba(0, 0, 0, 0.7);
+            width: 95vw;
+            max-width: 700px; /* 限制最大寬度，響應式設計 */
+            padding: 1.5rem;
+            z-index: 10; 
+        }
+
+        #canvas-container {
+            position: relative;
+            background: linear-gradient(180deg, #1c1c4e 0%, #0f0f20 100%);
+            border-radius: 1rem;
+            border: 4px solid #f9d71c; /* 金色邊框 */
+            overflow: hidden;
+            touch-action: none; /* 禁用瀏覽器觸控行為 */
+            min-height: 400px; /* 確保容器有高度，避免閃爍 */
+        }
+        
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 400px;
+            cursor: pointer;
+        }
+
+        .status-bar-item {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: bold;
+        }
+
+        .game-button {
+            padding: 0.6rem 2rem;
+            background: linear-gradient(145deg, #f9d71c, #ffcc00);
+            color: #1a1a38;
+            font-weight: 900;
+            font-size: 1.1rem;
+            border-radius: 9999px;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(255, 204, 0, 0.4);
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        .game-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 204, 0, 0.7);
+        }
+
+        /* 吉祥物樣式 (頁面左下角固定) */
+        #mascot-fixed {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            width: 80px; 
+            height: auto;
+            cursor: pointer;
+            z-index: 5; 
+            transition: transform 0.2s ease-out, filter 0.2s ease-out; 
+        }
+
+        /* 抖動動畫 */
+        @keyframes neon-shake {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            10% { transform: translate(-1px, -1px) rotate(-1deg); }
+            20% { transform: translate(1px, 1px) rotate(1deg); }
+            30% { transform: translate(-1px, 1px) rotate(-1deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, -1px) rotate(-1deg); }
+            60% { transform: translate(1px, 1px) rotate(1deg); }
+            70% { transform: translate(-1px, 1px) rotate(-1deg); }
+            80% { transform: translate(1px, -1px) rotate(1deg); }
+            90% { transform: translate(-1px, -1px) rotate(-1deg); }
+        }
+
+        #mascot-fixed:hover {
+            animation: neon-shake 0.8s infinite linear; 
+            filter: drop-shadow(0 0 5px #ff00ff) 
+                    drop-shadow(0 0 10px #00ffff) 
+                    drop-shadow(0 0 15px #ffcc00) 
+                    drop-shadow(0 0 20px #00ff00); 
+        }
+
+        /* 版權信息樣式 */
+        #copyright {
+            margin-top: 2rem;
+            font-size: 0.9rem;
+            color: #7f8c8d;
+            text-align: center;
+            z-index: 10;
+        }
+
+        /* 遊戲說明書樣式 */
+        #instructions-modal {
+            background-color: rgba(0, 0, 0, 0.75);
+            z-index: 50;
+        }
+        #instructions-modal .bg-gray-800 {
+            max-height: 90vh; /* 限制最大高度 */
+            overflow-y: auto; /* 超出部分滾動 */
+        }
+
+        /* 遊戲按鈕覆蓋層 */
+        #game-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none; /* 讓點擊穿透到 canvas */
+            z-index: 20; 
+            background: rgba(0,0,0,0.3); /* 輕微背景，讓文字更清晰 */
+            border-radius: 1rem; /* 匹配 canvas 容器 */
+            transition: opacity 0.3s ease-in-out; /* 平滑隱藏/顯示 */
+            opacity: 1;
+        }
+
+        #game-overlay.hidden {
+            opacity: 0;
+            pointer-events: none; /* 完全隱藏時不響應點擊 */
+            display: none; /* 實際上隱藏元素 */
+        }
+        /* 當 hidden 類別存在時才應用 display: flex */
+        #game-overlay:not(.hidden) {
+            display: flex; 
+        }
+
+
+        #game-overlay > * {
+            pointer-events: auto; /* 恢復按鈕和訊息的可點擊性 */
+        }
+
+        /* 主標題內的說明按鈕 */
+        #title-instructions-button {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            color: #facc15; /* yellow-400 */
+            transition: color 0.2s;
+        }
+        #title-instructions-button:hover {
+            color: #fde047; /* yellow-200 */
+        }
+        @media (min-width: 640px) { /* Small screens and up */
+            #title-instructions-button {
+                right: 1rem; /* 增加一些右邊距 */
+            }
+        }
+
+        /* 物品小圖標在文字中的樣式 */
+        .item-icon-inline {
+            height: 1.5em; /* 根據文字大小調整高度 */
+            width: auto;
+            vertical-align: middle; /* 垂直居中 */
+            margin: 0 0.2em; /* 左右間距 */
+            display: inline-block; /* 確保它能與文字並排 */
+        }
+        /* 確保每個任務項目的圖片和文字不會斷開 */
+        .mission-item-wrapper {
+            display: inline-flex; /* 使用 flex 讓內容並排 */
+            align-items: center; /* 垂直居中對齊 */
+            white-space: nowrap; /* 防止內部內容換行 */
+            margin-right: 1rem; /* 各個任務項目之間的間距 */
+        }
+        /* 任務目標區的文字 flex 容器 */
+        #mission-display .flex-wrap {
+            display: flex;
+            flex-wrap: wrap; /* 允許整體換行，但單個項目不換行 */
+            gap: 0; /* 移除默認的gap，由.mission-item-wrapper的margin-right控制 */
+        }
+
+        /* 背景音樂控制區 */
+        #music-controls {
+            background-color: #1a1a38;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+            padding: 0.75rem 1.5rem;
+            margin-top: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        #music-controls.hidden {
+            display: none;
+        }
+        #music-toggle-button {
+            background: none;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            color: #facc15;
+            transition: color 0.2s;
+        }
+        #music-toggle-button:hover {
+            color: #fde047;
+        }
+        #music-volume-slider {
+            width: 80px; /* 寬度調整 */
+            height: 8px;
+            background: transparent; 
+            border-radius: 4px;
+            outline: none;
+            -webkit-appearance: none; 
+            appearance: none;
+        }
+        /* 針對 Webkit 瀏覽器 (Chrome, Safari) 的滑桿軌道 */
+        #music-volume-slider::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            background: transparent; 
+            border-radius: 4px;
+            -webkit-appearance: none; 
+        }
+        /* 針對 Firefox 的滑桿軌道 */
+        #music-volume-slider::-moz-range-track {
+            width: 100%;
+            height: 8px;
+            background: transparent; 
+            border-radius: 4px;
+        }
+        #music-volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #f9d71c; /* yellow-400 */
+            cursor: pointer;
+            box-shadow: 0 0 5px rgba(255, 204, 0, 0.7);
+            margin-top: -4px; 
+        }
+        #music-volume-slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #f9d71c; /* yellow-400 */
+            cursor: pointer;
+            box-shadow: 0 0 5px rgba(255, 204, 0, 0.7);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-wrapper">
+        <h1 class="text-3xl font-extrabold mb-4 text-center text-yellow-300 relative">
+            逐月神攝手遊戲系統 
+            <button id="title-instructions-button" onclick="toggleInstructions()">
+                <i class="fas fa-info-circle text-2xl"></i>
+            </button>
+        </h1>
+        
+        <!-- 狀態欄：關卡、時間、分數 -->
+        <div class="flex justify-between items-center mb-4 p-2 bg-gray-700/50 rounded-xl">
+            <div class="status-bar-item bg-blue-500/30">關卡: <span id="level-display">0</span></div>
+            <div class="status-bar-item bg-red-500/30 text-2xl">時間: <span id="timer-display">0.0</span>s</div>
+            <div class="status-bar-item bg-green-500/30">得分: <span id="score-display">0</span></div>
+        </div>
+
+        <!-- 任務目標區 -->
+        <div id="mission-display" class="mb-4 p-4 rounded-lg bg-yellow-900/40 border-l-4 border-yellow-400">
+            <h2 class="text-xl font-bold mb-2 text-yellow-300"><i class="fas fa-bullseye"></i> 任務目標:</h2>
+            <div class="flex flex-wrap text-lg">
+                <p><i class="fas fa-camera-retro text-green-300"></i> 捕捉: <span id="targets" class="font-bold text-green-300">...</span></p>
+                <p><i class="fas fa-ban text-red-300"></i> 避開: <span id="forbidden" class="font-bold text-red-300">...</span></p>
+            </div>
+            <p id="level-name" class="text-sm mt-2 italic text-gray-300">遊戲尚未開始</p>
+        </div>
+
+        <!-- 畫布容器 -->
+        <div id="canvas-container">
+            <canvas id="gameCanvas"></canvas>
+            <!-- 遊戲訊息與按鈕覆蓋層 -->
+            <div id="game-overlay">
+                <p id="game-message" class="text-lg text-white mb-4 text-center drop-shadow-lg"></p>
+                <button id="start-button" class="game-button"></button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 背景音樂控制區 -->
+    <div id="music-controls" class="mt-4 p-3 bg-gray-700/50 rounded-xl flex items-center gap-4">
+        <button id="music-toggle-button" class="text-yellow-300 text-2xl">
+            <i class="fas fa-volume-up"></i> <!-- 初始為播放狀態 -->
+        </button>
+        <input type="range" id="music-volume-slider" min="0" max="1" step="0.05" value="0.3">
+    </div>
+
+    <!-- 吉祥物圖片 (頁面左下角固定) -->
+    <img id="mascot-fixed" src="image/LiyuChillGuy.svg" alt="吉祥物 LiyuChillGuy">
+
+    <!-- 版權信息 -->
+    <div id="copyright">
+        <p>Copyright © Liyuchiutiger Gongminshen</p>
+    </div>
+
+    <!-- 遊戲說明書 Modal -->
+    <div id="instructions-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-gray-800 rounded-lg p-6 max-w-lg w-full text-white shadow-xl relative">
+            <h2 class="text-2xl font-bold mb-4 text-yellow-300"><i class="fas fa-gamepad"></i> 逐月神攝手遊戲說明</h2>
+            <button class="absolute top-3 right-3 text-gray-400 hover:text-white text-3xl font-bold" onclick="toggleInstructions()">&times;</button>
+            
+            <p class="mb-3">歡迎來到中秋追影捕捉挑戰！你的任務是在限時內，捕捉到關卡指定的所有「目標」，同時「避開」所有禁忌物品。</p>
+            
+            <h3 class="text-xl font-bold mt-4 mb-2 text-blue-300"><i class="fas fa-crosshairs"></i> 如何遊玩:</h3>
+            <ul class="list-disc list-inside mb-3 space-y-1">
+                <li>遊戲區域內會漂浮著各種中秋元素 (例如：<span class="mission-item-wrapper"><img src="item/moon.svg" alt="月亮" class="item-icon-inline">月亮</span>、<span class="mission-item-wrapper"><img src="item/rabbit.svg" alt="玉兔" class="item-icon-inline">玉兔</span>、<span class="mission-item-wrapper"><img src="item/mooncake.svg" alt="月餅" class="item-icon-inline">月餅</span>、<span class="mission-item-wrapper"><img src="item/pomelo.svg" alt="柚子" class="item-icon-inline">柚子</span>、<span class="mission-item-wrapper"><img src="item/matcha.svg" alt="抹茶" class="item-icon-inline">抹茶</span>、<span class="mission-item-wrapper"><img src="item/bubbletea.svg" alt="珍奶" class="item-icon-inline">珍珠奶茶</span>、<span class="mission-item-wrapper"><img src="item/dango.svg" alt="糰子" class="item-icon-inline">糯米糰子</span>)。</li>
+                <li>點擊畫面任何位置，即會觸發一次「全螢幕快照」。</li>
+                <li>如果快照中出現任何 <span class="mission-item-wrapper"><img src="item/egg.svg" alt="爆氣炸蛋" class="item-icon-inline">爆氣炸蛋</span> 或 <span class="mission-item-wrapper"><img src="item/tiger.svg" alt="老虎" class="item-icon-inline">老虎</span>，你將立即失敗！</li>
+                <li>如果快照中同時出現所有「任務目標」 (例如：<span class="mission-item-wrapper"><img src="item/moon.svg" alt="月亮" class="item-icon-inline">月亮</span>、<span class="mission-item-wrapper"><img src="item/rabbit.svg" alt="玉兔" class="item-icon-inline">玉兔</span>、<span class="mission-item-wrapper"><img src="item/mooncake.svg" alt="月餅" class="item-icon-inline">月餅</span>、<span class="mission-item-wrapper"><img src="item/bubbletea.svg" alt="珍奶" class="item-icon-inline">珍珠奶茶</span>)，且沒有任何禁忌物品，你將成功晉級！</li>
+                <li>捕捉 <span class="mission-item-wrapper"><img src="item/gms.svg" alt="快樂鯉魚" class="item-icon-inline">快樂鯉魚</span>可獲得額外獎勵分數，但僅限在成功晉級的回合！</li>
+                <li>點擊「下一關」或「再試一次」才會讓物件重新移動。如果快照沒有導致晉級或失敗，會出現「繼續捕捉」按鈕，點擊後物件也會恢復移動。</li>
+            </ul>
+
+            <h3 class="text-xl font-bold mt-4 mb-2 text-green-300"><i class="fas fa-star"></i> 遊戲提示:</h3>
+            <ul class="list-disc list-inside space-y-1">
+                <li>每個關卡的時間和目標都不同，請仔細查看。</li>
+                <li>遊戲會隨著關卡推進而增加難度，物品移動速度會變快！</li>
+                <li>精準判斷快照時機是獲勝的關鍵！</li>
+            </ul>
+            <button class="game-button mt-6 w-full" onclick="toggleInstructions()">我知道了！</button>
+        </div>
+    </div>
+
+    <!-- 背景音樂 Audio Element -->
+    <audio id="background-music" loop preload="auto">
+        <source src="audio/bgm.mp3" type="audio/mpeg">
+        <!-- 如果需要兼容更多瀏覽器，可以添加 OGG 格式： -->
+        <!-- <source src="audio/bgm.ogg" type="audio/ogg"> -->
+        您的瀏覽器不支持音頻元素。請確認 `audio/bgm.mp3` 文件存在。
+    </audio>
+
+    <script>
+        // --- 遊戲設定與初始化 ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const TIMER_DISPLAY = document.getElementById('timer-display');
+        const LEVEL_DISPLAY = document.getElementById('level-display');
+        const SCORE_DISPLAY = document.getElementById('score-display');
+        const TARGETS_DISPLAY = document.getElementById('targets');
+        const FORBIDDEN_DISPLAY = document.getElementById('forbidden');
+        const LEVEL_NAME_DISPLAY = document.getElementById('level-name');
+        const GAME_MESSAGE = document.getElementById('game-message');
+        const START_BUTTON = document.getElementById('start-button');
+        const GAME_OVERLAY = document.getElementById('game-overlay'); 
+        const SCORE_PER_CAPTURE = 100;
+        const BONUS_ITEM_SCORE = 200; 
+        const SCALE_FACTOR = 2; 
+
+        let CANVAS_WIDTH, CANVAS_HEIGHT;
+        let gameState = 'ready'; 
+        let gameObjects = [];
+        let timerInterval;
+        let timeLeft = 0;
+        let score = 0;
+        let currentLevelIndex = 0;
+        let captureEffect = null; 
+        let highlightEffect = null; 
+        let bonusMessages = []; 
+        let objectsAreFrozen = false; 
+
+        // --- Web Audio API (音效) ---
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        // 此旗標現在用於追蹤音樂是否已經成功播放過至少一次 (非被瀏覽器阻擋的狀態)
+        let backgroundMusicPlayedOnceSuccessfully = false; 
+
+        function playSound(frequency, duration, type = 'sine', decayTime = 0.1, volume = 0.5) {
+            if (!audioContext || audioContext.state === 'suspended') {
+                audioContext.resume().then(() => {
+                    _createAndPlayOscillator();
+                });
+            } else {
+                _createAndPlayOscillator();
+            }
+
+            function _createAndPlayOscillator() {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                oscillator.type = type; 
+                oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+
+                gainNode.gain.setValueAtTime(volume, audioContext.currentTime); 
+                gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + decayTime);
+
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + duration);
+            }
+        }
+
+        // --- 背景音樂控制 ---
+        const bgmAudio = document.getElementById('background-music');
+        const musicToggleButton = document.getElementById('music-toggle-button');
+        const musicVolumeSlider = document.getElementById('music-volume-slider');
+        
+        // 函數：更新音樂按鈕圖標
+        function updateMusicButtonIcon() {
+            if (bgmAudio.paused || bgmAudio.volume === 0) {
+                musicToggleButton.innerHTML = '<i class="fas fa-volume-mute"></i>';
+            } else {
+                musicToggleButton.innerHTML = '<i class="fas fa-volume-up"></i>';
+            }
+        }
+
+        // 函數：更新音量滑桿的填色
+        function updateVolumeSliderFill() {
+            const volume = parseFloat(musicVolumeSlider.value);
+            const min = parseFloat(musicVolumeSlider.min);
+            const max = parseFloat(musicVolumeSlider.max);
+            const percentage = ((volume - min) / (max - min)) * 100;
+
+            musicVolumeSlider.style.background = `linear-gradient(to right, #f9d71c 0%, #f9d71c ${percentage}%, #4b5563 ${percentage}%, #4b5563 100%)`;
+        }
+
+        // 播放/暫停功能
+        function toggleBackgroundMusic() {
+            if (bgmAudio.paused) {
+                // 如果音樂已暫停，嘗試播放
+                bgmAudio.play().then(() => {
+                    backgroundMusicPlayedOnceSuccessfully = true;
+                    updateMusicButtonIcon();
+                }).catch(e => {
+                    console.error("背景音樂播放失敗 (用戶點擊):", e);
+                    updateMusicButtonIcon(); // 即使播放失敗，也更新圖標
+                });
+            } else {
+                // 如果音樂正在播放，暫停它
+                bgmAudio.pause();
+                updateMusicButtonIcon();
+            }
+        }
+        musicToggleButton.onclick = toggleBackgroundMusic;
+
+        // 音量調整功能
+        musicVolumeSlider.oninput = () => {
+            bgmAudio.volume = parseFloat(musicVolumeSlider.value);
+            updateMusicButtonIcon();    // 更新靜音/非靜音圖標
+            updateVolumeSliderFill();   // 更新滑桿填色
+
+            // 如果音量從0調回非0，且音樂當前已暫停，嘗試播放 (如同用戶點擊播放)
+            if (bgmAudio.volume > 0 && bgmAudio.paused) {
+                bgmAudio.play().then(() => {
+                    backgroundMusicPlayedOnceSuccessfully = true;
+                    updateMusicButtonIcon();
+                }).catch(e => {
+                    console.warn("背景音樂無法在調整音量後播放:", e);
+                    updateMusicButtonIcon(); // 失敗後也更新圖標
+                });
+            }
+        };
+
+        // 確保在任何用戶交互後背景音樂能夠播放或恢復
+        function ensureBackgroundMusicPlays() {
+            // 只有當音樂當前是暫停狀態，且音量不是0時才嘗試播放
+            if (bgmAudio.paused && bgmAudio.volume > 0) { 
+                bgmAudio.play().then(() => {
+                    backgroundMusicPlayedOnceSuccessfully = true; // 標記為已成功播放過
+                    updateMusicButtonIcon();
+                }).catch(e => {
+                    console.warn("背景音樂恢復播放失敗 (可能被瀏覽器阻擋):", e.message);
+                    // 即使播放失敗，也更新圖標以確保狀態正確 (可能還是靜音)
+                    updateMusicButtonIcon(); 
+                });
+            } else if (!bgmAudio.paused && bgmAudio.volume > 0) {
+                // 如果音樂已經在播放且有音量，則標記為成功播放過
+                backgroundMusicPlayedOnceSuccessfully = true;
+            }
+            // 如果音樂已在播放，或者音量為0，則不需要額外處理
+        }
+
+
+        // --- 頁面載入時的初始化順序 ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. 設定初始音量
+            bgmAudio.volume = parseFloat(musicVolumeSlider.value);
+            // 2. 更新音量滑桿填色 (這樣即使自動播放失敗，滑桿也是正確的)
+            updateVolumeSliderFill();
+            // 3. 預設圖標為播放狀態 (即使實際可能被阻擋，也符合用戶期望)
+            musicToggleButton.innerHTML = '<i class="fas fa-volume-up"></i>';
+
+            // 4. 嘗試在頁面載入時自動播放背景音樂
+            //    瀏覽器可能會阻擋此操作，但這符合「預設自動播放」的需求
+            bgmAudio.play().then(() => {
+                backgroundMusicPlayedOnceSuccessfully = true; // 自動播放成功
+                updateMusicButtonIcon(); // 確保圖標正確
+            }).catch(e => {
+                console.warn("背景音樂自動播放被阻擋 (首次載入):", e.message);
+                // 如果自動播放被阻擋，`bgmAudio.paused` 會是 `true`。
+                // 我們不在此處立即將圖標切換為靜音，讓它保持「音量開啟」的視覺狀態，
+                // 等待用戶互動後 `ensureBackgroundMusicPlays()` 來真正啟動音樂。
+            });
+        });
+
+
+        // --- 資產載入管理 ---
+        const ORIGINAL_IMAGE_DEFINITIONS = {
+            EGG: { path: 'item/egg.svg', size: 35 * SCALE_FACTOR, speed: 2.0, name: '爆氣炸蛋', iconClass: 'fas fa-bomb' }, 
+            MOON: { path: 'item/moon.svg', size: 30 * SCALE_FACTOR, speed: 0.5, name: '月亮', iconClass: 'fas fa-moon' }, 
+            MOONCAKE: { path: 'item/mooncake.svg', size: 22.5 * SCALE_FACTOR, speed: 1.2, name: '月餅', iconClass: 'fas fa-cookie-bite' }, 
+            POMELO: { path: 'item/pomelo.svg', size: 25 * SCALE_FACTOR, speed: 1.5, name: '柚子', iconClass: 'fas fa-lemon' }, 
+            RABBIT: { path: 'item/rabbit.svg', size: 20 * SCALE_FACTOR, speed: 1.0, name: '玉兔', iconClass: 'fas fa-rabbit' }, 
+            MATCHA: { path: 'item/matcha.svg', size: 20 * SCALE_FACTOR, speed: 0.8, name: '抹茶', iconClass: 'fas fa-tea' }, 
+            TIGER: { path: 'item/tiger.svg', size: 25 * SCALE_FACTOR, speed: 2.5, name: '老虎', iconClass: 'fas fa-tiger' }, 
+            HAPPY_CARP: { path: 'item/gms.svg', size: 27.5 * SCALE_FACTOR, speed: 1.0, name: '快樂鯉魚', isBonus: true, iconClass: 'fas fa-fish-fins' }, 
+            BUBBLETEA: { path: 'item/bubbletea.svg', size: 28 * SCALE_FACTOR, speed: 1.3, name: '珍珠奶茶', iconClass: 'fas fa-bubble-tea' }, 
+            DANGO: { path: 'item/dango.svg', size: 22 * SCALE_FACTOR, speed: 0.7, name: '糯米糰子', iconClass: 'fas fa-cookie' }, 
+        };
+
+        const LOADED_IMAGES = {}; 
+        let fontAwesomeLoaded = false; 
+
+        const totalAssetsToLoad = Object.keys(ORIGINAL_IMAGE_DEFINITIONS).length + 1; 
+        let assetsLoadedProgress = 0; 
+
+        function checkAllAssetsLoaded() {
+            assetsLoadedProgress++;
+            if (assetsLoadedProgress === totalAssetsToLoad) {
+                for (const key in ORIGINAL_IMAGE_DEFINITIONS) {
+                    OBJECT_TYPES[key] = { 
+                        ...ORIGINAL_IMAGE_DEFINITIONS[key], 
+                        img: LOADED_IMAGES[key],
+                        miniHtmlImg: `<img src="${ORIGINAL_IMAGE_DEFINITIONS[key].path}" alt="${ORIGINAL_IMAGE_DEFINITIONS[key].name}" class="item-icon-inline">`
+                    };
+                }
+                initGame();
+                requestAnimationFrame(drawGame);
+            }
+        }
+
+        document.fonts.ready.then(() => {
+            fontAwesomeLoaded = true;
+            checkAllAssetsLoaded();
+        }).catch(err => {
+            console.error("Font Awesome 字體載入失敗:", err);
+            fontAwesomeLoaded = true;
+            checkAllAssetsLoaded();
+        });
+
+        for (const key in ORIGINAL_IMAGE_DEFINITIONS) {
+            const img = new Image();
+            img.src = ORIGINAL_IMAGE_DEFINITIONS[key].path;
+            img.onload = () => {
+                LOADED_IMAGES[key] = img;
+                checkAllAssetsLoaded();
+            };
+            img.onerror = () => {
+                console.warn(`圖片載入失敗: ${ORIGINAL_IMAGE_DEFINITIONS[key].path}。此物件可能無法顯示。`);
+                LOADED_IMAGES[key] = null;
+                checkAllAssetsLoaded();
+            };
+        }
+
+        const OBJECT_TYPES = {}; 
+
+        // --- 關卡數據 (已更新至五關) ---
+        const LEVELS = [
+            {
+                name: "尋找月亮之光",
+                duration: 12,
+                required: ['MOON'],
+                forbidden: ['TIGER', 'EGG'], 
+                objectCount: 8,
+                speedMultiplier: 1.0,
+            },
+            {
+                name: "玉兔與月餅",
+                duration: 10,
+                required: ['RABBIT', 'MOONCAKE'],
+                forbidden: ['TIGER', 'EGG'],
+                objectCount: 12,
+                speedMultiplier: 1.2,
+            },
+            {
+                name: "清涼飲品",
+                duration: 10,
+                required: ['BUBBLETEA', 'POMELO'], 
+                forbidden: ['TIGER'],
+                objectCount: 13,
+                speedMultiplier: 1.3,
+            },
+            {
+                name: "中秋甜點",
+                duration: 9,
+                required: ['MOONCAKE', 'DANGO'], 
+                forbidden: ['EGG'],
+                objectCount: 14,
+                speedMultiplier: 1.4,
+            },
+            {
+                name: "圓滿豐收夜",
+                duration: 8,
+                required: ['MOON', 'RABBIT', 'MOONCAKE', 'BUBBLETEA'],
+                forbidden: ['TIGER', 'EGG', 'MATCHA'], 
+                objectCount: 16,
+                speedMultiplier: 1.6,
+            },
+        ];
+
+        // --- 遊戲對象類別 ---
+        class GameObject {
+            constructor(typeId) {
+                const typeDef = OBJECT_TYPES[typeId]; 
+                this.typeId = typeId;
+                this.img = typeDef.img; 
+                this.size = typeDef.size; 
+                this.x = Math.random() * CANVAS_WIDTH;
+                this.y = Math.random() < 0.5 ? -this.size : CANVAS_HEIGHT + this.size; 
+                this.baseSpeed = typeDef.speed;
+                this.vx = (Math.random() - 0.5) * 0.5; 
+                this.vy = this.y < CANVAS_HEIGHT / 2 ? 1 : -1; 
+                this.isBonus = typeDef.isBonus || false; 
+                this.name = typeDef.name; 
+                this.iconClass = typeDef.iconClass; 
+                this.miniHtmlImg = typeDef.miniHtmlImg; 
+            }
+
+            isVisibleOnCanvas() {
+                return (
+                    this.x + this.size / 2 > 0 && 
+                    this.x - this.size / 2 < CANVAS_WIDTH && 
+                    this.y + this.size / 2 > 0 && 
+                    this.y - this.size / 2 < CANVAS_HEIGHT
+                );
+            }
+
+            update(speedMultiplier) {
+                if (objectsAreFrozen) return; 
+
+                this.x += this.vx * this.baseSpeed * speedMultiplier;
+                this.y += this.vy * this.baseSpeed * speedMultiplier;
+
+                if (this.x - this.size / 2 < 0 || this.x + this.size / 2 > CANVAS_WIDTH) {
+                    this.vx *= -1;
+                    if (this.x - this.size / 2 < 0) this.x = this.size / 2;
+                    if (this.x + this.size / 2 > CANVAS_WIDTH) this.x = CANVAS_WIDTH - this.size / 2;
+                }
+            }
+
+            isOffScreen() {
+                if (objectsAreFrozen) return false;
+                return (this.y < -this.size * 2 || this.y > CANVAS_HEIGHT + this.size * 2);
+            }
+
+            draw() {
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.globalAlpha = 1.0; 
+
+                if (this.img) { 
+                    ctx.drawImage(this.img, this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
+                } else {
+                    ctx.fillStyle = 'gray';
+                    ctx.fillRect(this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
+                    ctx.fillStyle = 'white';
+                    ctx.font = `${this.size/3}px Arial`;
+                    ctx.fillText(this.typeId, this.x, this.y);
+                }
+                ctx.restore();
+            }
+        }
+
+        // --- 遊戲邏輯函數 ---
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            CANVAS_WIDTH = container.clientWidth;
+            CANVAS_HEIGHT = 400; 
+            canvas.width = CANVAS_WIDTH;
+            canvas.height = CANVAS_HEIGHT;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas(); 
+
+        function generateRandomGameObject() {
+            let newTypeId;
+            const rand = Math.random();
+            if (rand < 0.1) { 
+                newTypeId = 'HAPPY_CARP';
+            } else {
+                const availableTypes = Object.keys(OBJECT_TYPES).filter(id => id !== 'HAPPY_CARP'); 
+                newTypeId = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+            }
+            return new GameObject(newTypeId);
+        }
+
+        function initGame() {
+            score = 0;
+            currentLevelIndex = 0;
+            SCORE_DISPLAY.textContent = score;
+            GAME_MESSAGE.textContent = '點擊開始按鈕，捕捉中秋夜景！';
+            START_BUTTON.textContent = '開始挑戰';
+            START_BUTTON.onclick = startGame; 
+            GAME_OVERLAY.classList.remove('hidden'); 
+            
+            gameState = 'ready';
+            objectsAreFrozen = false; 
+            highlightEffect = null; 
+            clearScreen();
+            updateMissionDisplay(LEVELS[currentLevelIndex]);
+        }
+
+        function startGame() {
+            ensureBackgroundMusicPlays(); // 嘗試播放背景音樂
+            currentLevelIndex = 0; 
+            score = 0;
+            SCORE_DISPLAY.textContent = score;
+            initLevel(currentLevelIndex);
+        }
+
+        // 恢復遊戲移動狀態和計時器
+        function resumeCapturing() {
+            ensureBackgroundMusicPlays(); // 確保音樂繼續播放
+            objectsAreFrozen = false; 
+            GAME_OVERLAY.classList.add('hidden'); 
+            GAME_MESSAGE.textContent = `關卡 ${currentLevelIndex + 1}: ${LEVELS[currentLevelIndex].name} - 倒數繼續!`; 
+            highlightEffect = null; 
+            startTimer(false); 
+        }
+
+
+        function initLevel(levelIndex) {
+            ensureBackgroundMusicPlays(); // 確保音樂繼續播放
+            if (levelIndex >= LEVELS.length) {
+                gameState = 'win';
+                clearInterval(timerInterval);
+                GAME_MESSAGE.innerHTML = `<span class="text-yellow-300 font-bold">🎉 恭喜! 完成所有挑戰! 總得分: ${score}</span>`;
+                START_BUTTON.textContent = '重新開始 (關卡 1)';
+                START_BUTTON.onclick = startGame;
+                GAME_OVERLAY.classList.remove('hidden'); 
+                objectsAreFrozen = true; 
+                return;
+            }
+
+            const level = LEVELS[levelIndex];
+            currentLevelIndex = levelIndex; 
+            
+            gameObjects = []; 
+            timeLeft = level.duration;
+            TIMER_DISPLAY.textContent = timeLeft.toFixed(1);
+            
+            for (let i = 0; i < level.objectCount; i++) {
+                gameObjects.push(generateRandomGameObject());
+            }
+
+            level.required.forEach(reqId => {
+                if (!gameObjects.some(obj => obj.typeId === reqId)) {
+                    const availableNeutralOrBonusIndices = gameObjects.map((obj, idx) => {
+                        const isRequired = level.required.includes(obj.typeId);
+                        const isForbidden = level.forbidden.includes(obj.typeId);
+                        if (!isRequired && !isForbidden) {
+                            return idx;
+                        }
+                        return -1;
+                    }).filter(idx => idx !== -1);
+                    
+                    if (availableNeutralOrBonusIndices.length > 0) {
+                        const indexToReplace = availableNeutralOrBonusIndices[Math.floor(Math.random() * availableNeutralOrBonusIndices.length)];
+                        gameObjects[indexToReplace] = new GameObject(reqId);
+                    } else {
+                        gameObjects.push(new GameObject(reqId));
+                    }
+                }
+            });
+
+            updateMissionDisplay(level);
+            LEVEL_DISPLAY.textContent = levelIndex + 1;
+            GAME_MESSAGE.textContent = `關卡 ${levelIndex + 1}: ${level.name} - 倒數開始!`; 
+            GAME_OVERLAY.classList.add('hidden'); 
+            
+            gameState = 'playing';
+            objectsAreFrozen = false; 
+            highlightEffect = null; 
+            startTimer(true); 
+        }
+
+        function updateMissionDisplay(level) {
+            const getMissionItemsDisplay = (itemIds) => itemIds.map(id => {
+                const objDef = OBJECT_TYPES[id]; 
+                return `<span class="mission-item-wrapper">${objDef.miniHtmlImg} ${objDef.name}</span>`;
+            }).join(''); 
+            
+            TARGETS_DISPLAY.innerHTML = getMissionItemsDisplay(level.required);
+            FORBIDDEN_DISPLAY.innerHTML = getMissionItemsDisplay(level.forbidden);
+            LEVEL_NAME_DISPLAY.textContent = `限時 ${level.duration} 秒，拍到一次即可晉級！`;
+        }
+
+        // `reset` 參數用於控制是否從頭開始計時 (true) 或從上次暫停點恢復 (false)
+        function startTimer(reset = true) {
+            clearInterval(timerInterval);
+            let startTime;
+
+            if (reset) {
+                timeLeft = LEVELS[currentLevelIndex].duration; 
+                startTime = performance.now();
+            } else {
+                startTime = performance.now() - (LEVELS[currentLevelIndex].duration - timeLeft) * 1000;
+            }
+            
+            TIMER_DISPLAY.textContent = timeLeft.toFixed(1); 
+
+            timerInterval = setInterval(() => {
+                if (objectsAreFrozen) {
+                    startTime = performance.now() - (LEVELS[currentLevelIndex].duration - timeLeft) * 1000; 
+                    return; 
+                }
+
+                const elapsed = (performance.now() - startTime) / 1000;
+                timeLeft = LEVELS[currentLevelIndex].duration - elapsed;
+                
+                if (timeLeft <= 0) {
+                    timeLeft = 0;
+                    clearInterval(timerInterval);
+                    TIMER_DISPLAY.textContent = '0.0';
+                    checkLevelEnd(false); 
+                    return;
+                }
+                
+                TIMER_DISPLAY.textContent = timeLeft.toFixed(1);
+            }, 100);
+        }
+
+        function displayBonusMessage(x, y, points) {
+            bonusMessages.push({
+                x: x,
+                y: y,
+                text: `+${points} BONUS!`,
+                startTime: Date.now(),
+                color: '#00ffc0' 
+            });
+            playSound(600, 0.1, 'sine', 0.05); // 獎勵音效
+        }
+
+        function handleCapture(x, y) { 
+            if (gameState !== 'playing' || objectsAreFrozen) return; 
+
+            captureEffect = { x, y, startTime: Date.now() };
+            playSound(300, 0.05, 'square', 0.02); // 快照音效
+            ensureBackgroundMusicPlays(); // 點擊畫布也嘗試播放音樂
+
+            const level = LEVELS[currentLevelIndex];
+            let visibleTargetsDetected = new Set();    
+            let visibleForbiddenDetected = new Set();  
+            let visibleBonusItemsDetected = [];        
+            
+            let itemsToHighlight = []; 
+
+            for (const obj of gameObjects) {
+                if (obj.isVisibleOnCanvas()) { 
+                    if (level.required.includes(obj.typeId)) {
+                        visibleTargetsDetected.add(obj.typeId);
+                        itemsToHighlight.push({ obj: obj, color: 'green' }); 
+                    } else if (level.forbidden.includes(obj.typeId)) {
+                        visibleForbiddenDetected.add(obj.typeId);
+                        itemsToHighlight.push({ obj: obj, color: 'red' }); 
+                    } else if (obj.typeId === 'HAPPY_CARP' && obj.isBonus) {
+                        visibleBonusItemsDetected.push(obj);
+                    }
+                }
+            }
+
+            let isCurrentSnapshotSuccessful = false;
+            let failureReason = null;
+
+            if (visibleForbiddenDetected.size > 0) {
+                failureReason = `捕捉到禁忌物品：${Array.from(visibleForbiddenDetected).map(id => OBJECT_TYPES[id].name).join('、')}！`;
+                itemsToHighlight = itemsToHighlight.filter(item => item.color === 'red'); 
+                
+            } else { 
+                const currentLevelRequiredTargets = LEVELS[currentLevelIndex].required;
+                const allRequiredTargetsVisible = currentLevelRequiredTargets.length > 0 && currentLevelRequiredTargets.every(reqId => visibleTargetsDetected.has(reqId));
+
+                if (allRequiredTargetsVisible) {
+                    isCurrentSnapshotSuccessful = true; 
+                    itemsToHighlight = itemsToHighlight.filter(item => item.color === 'green'); 
+
+                } else {
+                    isCurrentSnapshotSuccessful = false; 
+                    itemsToHighlight = []; 
+                }
+            }
+            
+            objectsAreFrozen = true; 
+
+            if (isCurrentSnapshotSuccessful || failureReason !== null) {
+                if (isCurrentSnapshotSuccessful) {
+                    for (const bonusItem of visibleBonusItemsDetected) {
+                        score += BONUS_ITEM_SCORE;
+                        SCORE_DISPLAY.textContent = score;
+                        displayBonusMessage(bonusItem.x, bonusItem.y, BONUS_ITEM_SCORE);
+                    }
+                }
+                checkLevelEnd(isCurrentSnapshotSuccessful, failureReason, itemsToHighlight);
+            } else {
+                GAME_MESSAGE.innerHTML = `<span class="text-gray-400">快照完成！還需努力！</span>`;
+                START_BUTTON.textContent = '繼續捕捉';
+                START_BUTTON.onclick = resumeCapturing;
+                GAME_OVERLAY.classList.remove('hidden'); 
+                highlightEffect = null; 
+            }
+        }
+
+
+        function checkLevelEnd(success, reason = null, itemsToHighlight = []) {
+            clearInterval(timerInterval); 
+            GAME_OVERLAY.classList.remove('hidden'); 
+
+            highlightEffect = { type: success ? 'success' : 'failure', items: itemsToHighlight, startTime: Date.now() }; 
+
+            if (success) {
+                gameState = 'win';
+                GAME_MESSAGE.innerHTML = `<span class="text-green-400 font-bold"><i class="fas fa-trophy"></i> 捕捉成功! 晉級下一關!</span>`;
+                START_BUTTON.textContent = '下一關';
+                START_BUTTON.onclick = () => {
+                    highlightEffect = null; // 清除高亮
+                    initLevel(currentLevelIndex + 1);
+                };
+                playSound(800, 0.15, 'sine', 0.1); // 成功音效
+                
+            } else {
+                gameState = 'lose';
+                GAME_MESSAGE.innerHTML = `<span class="text-red-400 font-bold"><i class="fas fa-times-circle"></i> 任務失敗!</span> ${reason ? '原因: ' + reason : '時間用盡了!'}`;
+                START_BUTTON.textContent = '再試一次';
+                START_BUTTON.onclick = () => {
+                    highlightEffect = null; // 清除高亮
+                    initLevel(currentLevelIndex);
+                };
+                playSound(150, 0.2, 'square', 0.1); // 失敗音效
+            }
+        }
+
+
+        // --- 繪圖與動畫 ---
+
+        function clearScreen() {
+            ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            ctx.fillStyle = '#1c1c4e';
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        }
+
+        function drawGame() {
+            clearScreen();
+
+            const level = LEVELS[currentLevelIndex];
+            const speedMultiplier = level ? level.speedMultiplier : 1.0;
+            
+            for (let i = gameObjects.length - 1; i >= 0; i--) {
+                const obj = gameObjects[i];
+                obj.update(speedMultiplier); 
+                obj.draw();
+                
+                if (!objectsAreFrozen && obj.isOffScreen()) { 
+                    gameObjects.splice(i, 1);
+                    gameObjects.push(generateRandomGameObject());
+                }
+            }
+            
+            if (captureEffect) {
+                const elapsed = Date.now() - captureEffect.startTime;
+                const duration = 200; 
+                
+                if (elapsed < duration) {
+                    const alpha = 1 - (elapsed / duration); 
+                    ctx.globalAlpha = alpha;
+                    
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                    
+                    ctx.globalAlpha = 1.0;
+                } else {
+                    captureEffect = null;
+                }
+            }
+
+            for (let i = bonusMessages.length - 1; i >= 0; i--) {
+                const msg = bonusMessages[i];
+                const elapsed = Date.now() - msg.startTime;
+                const duration = 1000; 
+
+                if (elapsed < duration) {
+                    const alpha = 1 - (elapsed / duration);
+                    ctx.save();
+                    ctx.font = 'bold 24px Inter';
+                    ctx.fillStyle = msg.color;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'bottom';
+                    ctx.globalAlpha = alpha;
+                    ctx.fillText(msg.text, msg.x, msg.y - (elapsed / 20)); 
+                    ctx.restore();
+                } else {
+                    bonusMessages.splice(i, 1);
+                }
+            }
+
+            // 高亮效果不再自行消失，而是等待按鈕互動
+            if (highlightEffect) {
+                ctx.save();
+                ctx.globalAlpha = 1.0; 
+                ctx.lineWidth = 4;
+
+                for (const item of highlightEffect.items) {
+                    if (item.obj.isVisibleOnCanvas()) { 
+                        ctx.strokeStyle = item.color; 
+                        ctx.beginPath();
+                        ctx.arc(item.obj.x, item.obj.y, item.obj.size / 2 + 10, 0, Math.PI * 2); 
+                        ctx.stroke();
+                    }
+                }
+                ctx.restore();
+            }
+
+            requestAnimationFrame(drawGame);
+        }
+
+        // --- 輸入處理 ---
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            let clientX, clientY;
+            
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top
+            };
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const pos = getMousePos(e); 
+            handleCapture(pos.x, pos.y);
+        });
+        
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const pos = getMousePos(e); 
+            handleCapture(pos.x, pos.y);
+        }, { passive: false });
+
+        // --- 遊戲說明書功能 ---
+        function toggleInstructions() {
+            const modal = document.getElementById('instructions-modal');
+            modal.classList.toggle('hidden');
+        }
+
+        // 遊戲的初始化和繪圖循環現在由 checkAllAssetsLoaded() 控制
+        // 確保所有資產載入後才啟動遊戲
+    </script>
+</body>
+</html>
