@@ -594,7 +594,7 @@
 
         const OBJECT_TYPES = {}; 
 
-        // --- 關卡數據 (已更新至五關) ---
+        // --- 關卡數據 (已更新第九關與第十關難度) ---
         const LEVELS = [
             {
                 name: "尋找月亮之光",
@@ -629,12 +629,52 @@
                 speedMultiplier: 1.4,
             },
             {
-                name: "圓滿豐收夜",
-                duration: 8,
-                required: ['MOON', 'RABBIT', 'MOONCAKE', 'BUBBLETEA'],
-                forbidden: ['TIGER', 'EGG', 'MATCHA'], 
+                name: "圓滿豐收夜", 
+                duration: 12, 
+                required: ['MOON', 'RABBIT', 'BUBBLETEA'], 
+                forbidden: ['TIGER', 'EGG'], 
                 objectCount: 16,
+                speedMultiplier: 1.3, 
+            },
+            {
+                name: "抹茶時光",
+                duration: 10,
+                required: ['MATCHA', 'DANGO'],
+                forbidden: ['TIGER', 'EGG', 'POMELO'], 
+                objectCount: 15,
+                speedMultiplier: 1.5,
+            },
+            {
+                name: "月下茶會",
+                duration: 10,
+                required: ['MOON', 'BUBBLETEA', 'MATCHA'],
+                forbidden: ['TIGER', 'EGG'],
+                objectCount: 17,
                 speedMultiplier: 1.6,
+            },
+            {
+                name: "柚子盛宴", 
+                duration: 10, 
+                required: ['POMELO', 'MOONCAKE'],
+                forbidden: ['TIGER', 'EGG'], 
+                objectCount: 16, 
+                speedMultiplier: 1.5, 
+            },
+            {
+                name: "追逐月光兔 (調整後)", // 標註為調整後
+                duration: 10, // 由 8 調整為 10 秒
+                required: ['MOON', 'RABBIT', 'DANGO'],
+                forbidden: ['TIGER', 'EGG', 'BUBBLETEA'], // 由 4 項調整為 3 項 (移除 MATCHA)
+                objectCount: 18, // 由 20 調整為 18
+                speedMultiplier: 1.7, // 由 1.8 調整為 1.7
+            },
+            {
+                name: "終極神攝手 (調整後)", // 標註為調整後
+                duration: 10, // 由 8 調整為 10 秒
+                required: ['MOON', 'RABBIT', 'MOONCAKE', 'POMELO'], 
+                forbidden: ['TIGER', 'EGG'], // 由 5 項大幅調整為 2 項 (移除 MATCHA, BUBBLETEA, DANGO)
+                objectCount: 22, 
+                speedMultiplier: 2.0, 
             },
         ];
 
